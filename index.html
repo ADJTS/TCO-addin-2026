@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Total Cost of Ownership Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" type="text/css" href="style.css" />
+</head>
+<body>
+  <div id="tcoDashboard" class="tco">
+
+    <div class="tco-toolbar">
+      <div class="tco-brand">
+        <svg class="tco-logo" viewBox="0 0 290 130" xmlns="http://www.w3.org/2000/svg" aria-label="Transscope Insight" role="img">
+          <text x="7" y="62" font-family="-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="42" letter-spacing="-1" fill="#00AEEF">TRANSSCOPE</text>
+          <text x="27" y="98" font-family="-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="32" letter-spacing="-0.5" fill="#4B4E50">INSIGHT</text>
+        </svg>
+        <div class="tco-titlewrap">
+          <div class="tco-title-eyebrow" data-i18n="appEyebrow">Fleet finance</div>
+          <h1 class="tco-title">
+            <svg class="tco-title-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M12 2.2c-4.8 0-8.6 1.6-8.6 3.7v12.2c0 2.1 3.8 3.7 8.6 3.7s8.6-1.6 8.6-3.7V5.9c0-2.1-3.8-3.7-8.6-3.7Zm6.6 15.9c0 .8-2.7 2.1-6.6 2.1s-6.6-1.3-6.6-2.1v-2.4c1.7.9 4.1 1.4 6.6 1.4s4.9-.5 6.6-1.4v2.4Zm0-4.8c0 .8-2.7 2.1-6.6 2.1s-6.6-1.3-6.6-2.1v-2.4c1.7.9 4.1 1.4 6.6 1.4s4.9-.5 6.6-1.4v2.4ZM12 9.8c-3.9 0-6.6-1.3-6.6-2.1S8.1 5.6 12 5.6s6.6 1.3 6.6 2.1S15.9 9.8 12 9.8Z"/></svg>
+            <span data-i18n="appTitle">Total Cost of Ownership</span>
+          </h1>
+        </div>
+      </div>
+      <div class="tco-toolbar-right">
+        <div class="tco-filter">
+          <select id="tcoPeriodSelect" class="tco-select" data-i18n-title="periodTitle" title="Cost period">
+            <option value="current_week" data-i18n="pCurrentWeek">Current Week</option>
+            <option value="last_week" data-i18n="pLastWeek">Last Week</option>
+            <option value="last_month" selected data-i18n="pLastMonth">Last Month</option>
+            <option value="last_90" data-i18n="pLast90">Last 90 Days</option>
+            <option value="ytd" data-i18n="pYtd">Year to Date</option>
+            <option value="custom" data-i18n="pCustom">Custom Range</option>
+          </select>
+          <span id="tcoCustomRange" class="tco-custom-range" hidden>
+            <input type="date" id="tcoCustomFrom" class="tco-date-input" />
+            <span class="tco-custom-range-sep">&ndash;</span>
+            <input type="date" id="tcoCustomTo" class="tco-date-input" />
+          </span>
+        </div>
+        <span id="tcoSyncPill" class="tco-sync-pill">
+          <span class="tco-live-dot"></span><span id="tcoSyncText">Loading&hellip;</span>
+        </span>
+        <button id="tcoRefreshBtn" class="tco-icon-btn" data-i18n-title="refreshTitle" title="Refresh">&#8635;</button>
+        <button id="tcoLangBtn" class="tco-toggle-btn" data-i18n-title="langTitle" title="Language">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.6 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.6-3.8-9S9.5 5.5 12 3Z" stroke="currentColor" stroke-width="1.7"/></svg>
+          <span class="tco-lang-code" id="tcoLangCode">EN</span>
+        </button>
+        <button id="tcoThemeBtn" class="tco-toggle-btn tco-theme-btn" data-i18n-title="themeTitle" title="Toggle theme">
+          <svg class="tco-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          <svg class="tco-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <button id="tcoRatesBtn" class="tco-rates-btn" data-i18n-title="ratesTitle" title="Edit default rates">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8.4 4c0-.5-.1-1-.2-1.5l2-1.5-2-3.4-2.3.9c-.8-.6-1.6-1.1-2.6-1.4L14.9 2h-3.8l-.4 2.6c-1 .3-1.9.8-2.6 1.4l-2.3-.9-2 3.4 2 1.5c-.1.5-.2 1-.2 1.5s.1 1 .2 1.5l-2 1.5 2 3.4 2.3-.9c.8.6 1.6 1.1 2.6 1.4l.4 2.6h3.8l.4-2.6c1-.3 1.9-.8 2.6-1.4l2.3.9 2-3.4-2-1.5c.1-.5.2-1 .2-1.5Z"/></svg>
+          <span data-i18n="rates">Rates</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="tco-hero">
+      <div class="tco-hero-board">
+        <section class="tco-hero-card tco-hero-monthly">
+          <div class="tco-hero-card-head">
+            <div class="tco-hero-card-title" data-i18n="heroMonthlyCost">Monthly cost</div>
+            <div class="tco-hero-card-hint" id="tcoMonthHint"></div>
+          </div>
+          <div class="tco-month-pills" id="tcoMonthPills"><!-- month pills injected by main.js --></div>
+          <div class="tco-month-chart" id="tcoMonthChart"><!-- SVG injected by main.js --></div>
+        </section>
+        <section class="tco-hero-card tco-hero-tco">
+          <div class="tco-hero-card-head">
+            <div class="tco-hero-card-title" data-i18n="heroTco">Total cost of ownership</div>
+          </div>
+          <div class="tco-hero-tco-figure">
+            <span class="tco-hero-tco-value" id="tcoHeroTcoValue">&mdash;</span>
+            <span class="tco-hero-tco-delta" id="tcoHeroTcoDelta" hidden></span>
+          </div>
+          <div class="tco-hero-gauge-row">
+            <div class="tco-hero-gauge" id="tcoHeroGauge"><!-- SVG injected by main.js --></div>
+            <div class="tco-hero-gauge-legend" id="tcoHeroGaugeLegend"><!-- injected by main.js --></div>
+          </div>
+        </section>
+      </div>
+      <div id="tcoKpis" class="tco-kpi-row"><!-- populated by main.js --></div>
+    </div>
+
+    <section class="tco-panel tco-assumptions-panel">
+      <div class="tco-assumptions-head">
+        <div class="tco-goals-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8.4 4c0-.5-.1-1-.2-1.5l2-1.5-2-3.4-2.3.9c-.8-.6-1.6-1.1-2.6-1.4L14.9 2h-3.8l-.4 2.6c-1 .3-1.9.8-2.6 1.4l-2.3-.9-2 3.4 2 1.5c-.1.5-.2 1-.2 1.5s.1 1 .2 1.5l-2 1.5 2 3.4 2.3-.9c.8.6 1.6 1.1 2.6 1.4l.4 2.6h3.8l.4-2.6c1-.3 1.9-.8 2.6-1.4l2.3.9 2-3.4-2-1.5c.1-.5.2-1 .2-1.5Z"/></svg>
+        </div>
+        <div class="tco-assumptions-titlewrap">
+          <h2 class="tco-assumptions-title">
+            <span data-i18n="stdFleetRates">Standard fleet rates</span>
+            <button type="button" class="tco-assumptions-info" id="tcoRatesInfoBtn" aria-label="What are standard fleet rates?">i</button>
+          </h2>
+          <div class="tco-assumptions-note" data-i18n="stdFleetRatesNote">applies to your real fleet &mdash; real-world prices, AC/DC rates, road tax &amp; lease</div>
+        </div>
+        <div class="tco-assumptions-popover" id="tcoRatesInfoPop" hidden><!-- populated by main.js --></div>
+      </div>
+      <div class="tco-assumptions-body" id="tcoAssumptions"><!-- populated by main.js --></div>
+    </section>
+
+    <section class="tco-panel tco-infographic-panel" id="tcoInfographicPanel">
+      <div class="tco-panel-head">
+        <div>
+          <div class="tco-panel-title" data-i18n="moneyTitle">Where the money goes</div>
+          <div class="tco-panel-sub" id="tcoInfographicSub">Fleet total cost of ownership, by category</div>
+        </div>
+      </div>
+      <div class="tco-infographic-body">
+        <div class="tco-donut-wrap" id="tcoDonut"><!-- SVG injected by main.js --></div>
+        <div class="tco-donut-side">
+          <div class="tco-donut-legend" id="tcoDonutLegend"><!-- injected --></div>
+          <div class="tco-donut-detail" id="tcoDonutDetail"><!-- injected --></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tco-panel tco-table-panel">
+      <div class="tco-panel-head">
+        <div class="tco-panel-title-wrap">
+          <div class="tco-panel-title" data-i18n="costPerVehicle">Cost per Vehicle</div>
+          <span class="tco-title-info-wrap">
+            <span class="tco-costinfo" id="tcoTableInfoBtn" tabindex="0" role="note">
+              <span class="tco-costinfo-i" aria-hidden="true">i</span><span data-i18n="costInfoLabel">Cost details</span>
+            </span>
+            <div class="tco-title-pop" id="tcoTablePop"><!-- populated by main.js --></div>
+          </span>
+        </div>
+        <div class="tco-panel-head-actions">
+          <button id="tcoClassifyBtn" class="tco-ghost-btn" data-i18n-title="classifyTitle" title="Classify vehicles" data-i18n="classifyBtn">Classify</button>
+          <button id="tcoResetAllBtn" class="tco-ghost-btn tco-reset-btn" data-i18n-title="resetAllTitle" title="Reset everything to defaults"><span data-i18n="resetAll">&#8635; Reset all</span></button>
+          <button id="tcoExportBtn" class="tco-ghost-btn" data-i18n-title="csvTitle" title="Copy table as CSV" data-i18n="copyCsv">Copy CSV</button>
+        </div>
+      </div>
+      <div class="tco-classify-warn" id="tcoClassifyWarn" hidden><!-- populated by main.js --></div>
+      <div class="tco-table-wrap">
+        <table class="tco-table">
+          <thead>
+            <tr>
+              <th data-i18n="colVehicle">Vehicle</th>
+              <th class="tco-num" data-i18n="colTrips">Trips</th>
+              <th class="tco-num" data-i18n="colDistance">Distance</th>
+              <th class="tco-num">AC kWh</th>
+              <th class="tco-num">DC kWh</th>
+              <th class="tco-num" data-i18n="colEnergy">Energy &euro;</th>
+              <th class="tco-num" id="tcoThRoadTax" data-i18n="colRoadTax">Road Tax &euro;</th>
+              <th class="tco-num" id="tcoThInsurance" data-i18n="colInsurance">Insurance &euro;</th>
+              <th class="tco-num" id="tcoThMaint" data-i18n="colMaint">Maintenance &euro;</th>
+              <th class="tco-num" id="tcoThCapital" data-i18n="colDepr">Depreciation &euro;</th>
+              <th class="tco-num">TCO &euro;</th>
+              <th class="tco-num">&euro; / km</th>
+              <th data-i18n="colAction">Action</th>
+            </tr>
+          </thead>
+          <tbody id="tcoTableBody">
+            <tr><td colspan="13" class="tco-loading-row" data-i18n="connecting">Connecting to MyGeotab&hellip;</td></tr>
+          </tbody>
+          <tfoot id="tcoTableFoot"><!-- populated by main.js --></tfoot>
+        </table>
+      </div>
+      <p class="tco-table-note" id="tcoTableNote"><!-- set by main.js --></p>
+    </section>
+
+    <section class="tco-panel tco-finsetup-panel" id="tcoCalcPanel">
+      <div class="tco-finsetup-head">
+        <div>
+          <div class="tco-finsetup-title" data-i18n="finSetupTitle">Trial calculation</div>
+          <div class="tco-finsetup-sub" data-i18n="finSetupSub">Run a trial calculation or projection for buying one or more new vehicles: compare financing options and fossil fuel versus electric, work out the break-even and the cost over a fixed period, and find the ownership form that best fits your fleet and organisation. These figures are indicative and based largely on the parameters you enter. For the TCO of your existing INSIGHT fleet, read and adjust the real figures from the dashboard itself.</div>
+        </div>
+      </div>
+      <div class="tco-finsetup-body">
+        <div class="tco-finsetup-actions">
+          <button class="tco-primary-btn" id="tcoScenarioBtn" data-i18n="openCalc">Open cost calculator</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="tco-panel tco-goals-panel" id="tcoGoalsPanel">
+      <button type="button" class="tco-advies-header" id="tcoAdviesToggle" aria-expanded="false" aria-controls="tcoAdviesBody">
+        <span class="tco-goals-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M12 2 9.6 3.7 6.7 3.4 5.5 6 3 7.6 3.9 10.4 3 13.2 5.5 14.8 6.7 17.4 9.6 17.1 12 18.8l2.4-1.7 2.9.3 1.2-2.6L21 10.4 20.1 7.6 21 4.8 18.5 3.2 17.3 .6 14.4 .9 12 2z" transform="translate(0 1)"/><circle cx="12" cy="9.5" r="4.6" fill="#fff" fill-opacity=".22"/></svg>
+        </span>
+        <span class="tco-advies-main">
+          <span class="tco-advies-title" data-i18n="adviesTitle">Advice</span>
+          <span class="tco-goals-total" id="tcoGoalsTotal"><!-- populated by main.js --></span>
+        </span>
+        <svg class="tco-advies-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="tco-advies-body" id="tcoAdviesBody" hidden>
+        <p class="tco-goals-datanote" data-i18n="goalsDataNote">This advice is built from your fleet data &mdash; historical records and completed trips in MyGeotab.</p>
+        <p class="tco-goals-sub" data-i18n="goalsSub">Behaviour patterns in your real fleet data that convert straight into savings. Clear one and your cost KPIs move.</p>
+        <p class="tco-goals-taphint" data-i18n="goalTapHint">Every recommendation is clickable &mdash; open it for the matching solution.</p>
+        <div class="tco-goals-list" id="tcoGoalsList"><!-- populated by main.js --></div>
+        <div class="tco-advies-actions">
+          <button type="button" class="tco-road-btn" id="tcoRoadBtn">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20c3-2 3-6 6-6s3 4 6 2 3-8 4-10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="14" r="1.6" fill="currentColor"/><circle cx="16" cy="16" r="1.6" fill="currentColor"/></svg>
+            <span data-i18n="roadToSuccess">The road to success</span>
+          </button>
+        </div>
+        <p class="tco-goals-note" id="tcoGoalsNote" data-i18n="goalsNote">Savings are estimates from idling, charging mix, speeding and utilisation in the selected period, annualised. Coach the driver or adjust the assignment to claim them.</p>
+      </div>
+    </section>
+
+    <footer class="tco-footer">
+      <div class="tco-footer-row">
+        <span class="tco-footer-copy">Transscope voertuigsystemen b.v. &copy; 2026</span>
+        <div class="tco-footer-links">
+          <button type="button" class="tco-footer-contact" id="tcoDisclaimerBtn" data-i18n="disclaimerBtn">Disclaimer</button>
+          <a class="tco-footer-contact" href="mailto:servicedesk@transscope.nl" data-i18n="contactBtn">Contact</a>
+        </div>
+      </div>
+      <p class="tco-footer-disclaimer" data-i18n="disclaimerShort">Indicatief hulpmiddel. Aan de weergegeven cijfers, aanbevelingen en projecties kunnen geen rechten worden ontleend. Lees de volledige disclaimer.</p>
+    </footer>
+
+  </div>
+
+  <!-- ===== Standalone cost calculator ===== -->
+  <div id="tcoScenarioModal" class="tco-modal" hidden>
+    <div class="tco-modal-backdrop" id="tcoScenarioBackdrop"></div>
+    <div class="tco-modal-card tco-scenario-card" role="dialog" aria-modal="true" aria-labelledby="tcoScenarioTitle">
+      <div class="tco-modal-head">
+        <div>
+          <div class="tco-modal-title" id="tcoScenarioTitle" data-i18n="calcTitle">Cost calculator</div>
+          <div class="tco-modal-sub" data-i18n="calcModalSub">Project one vehicle&rsquo;s total cost over a period. This is a what-if tool &mdash; it does not change your fleet or its rates.</div>
+        </div>
+        <button class="tco-modal-close" id="tcoScenarioX" data-i18n-title="close" title="Close">&times;</button>
+      </div>
+
+      <div class="tco-modal-body">
+        <!-- shared basis for the projection -->
+        <p class="tco-scenario-section-label" data-i18n="usageLabel">Usage &amp; projection</p>
+        <div class="tco-rate-grid">
+          <div class="tco-field">
+            <label data-i18n="estKm">Estimated kilometres / year</label>
+            <div class="tco-input-wrap"><input type="number" inputmode="numeric" step="1000" min="0" id="tcoCalcKm" value="20000" /><span class="tco-affix">km</span></div>
+          </div>
+          <div class="tco-field">
+            <label data-i18n="projectionPeriod">Projection period</label>
+            <div class="tco-input-wrap"><select id="tcoCalcPeriod">
+              <option value="1m" data-i18n="perOneMonth">1 month</option>
+              <option value="3m" data-i18n="perThreeMonths">3 months</option>
+              <option value="6m" data-i18n="perSixMonths">6 months</option>
+              <option value="12m" selected data-i18n="perTwelveMonths">12 months</option>
+              <option value="term" data-i18n="perFullTerm">Full term</option>
+            </select></div>
+          </div>
+        </div>
+        <div class="tco-slider-field" id="tcoCalcTermWrap">
+          <div class="tco-slider-head"><label for="tcoTermSlider" data-i18n="contractTerm">Contract term (years)</label><span class="tco-slider-bubble" id="tcoTermVal">4</span></div>
+          <input type="range" class="tco-range" id="tcoTermSlider" min="1" max="7" step="1" value="4" />
+          <div class="tco-slider-ticks"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div>
+        </div>
+
+        <!-- single / compare switch -->
+        <div class="tco-compare-switch" id="tcoCompareSwitch" role="tablist">
+          <button type="button" data-cmp="0" class="is-active" data-i18n="calcSingle">Single vehicle</button>
+          <button type="button" data-cmp="1" data-i18n="calcCompare">Compare two vehicles</button>
+        </div>
+
+        <!-- A / B config tabs + a separate Comparison result button (compare mode) -->
+        <div class="tco-veh-tabs" id="tcoVehTabs" role="tablist" hidden>
+          <div class="tco-veh-tabs-ab">
+            <button type="button" data-vtab="a" class="is-active" data-i18n="calcVehA">Vehicle A</button>
+            <button type="button" data-vtab="b" data-i18n="calcVehB">Vehicle B</button>
+          </div>
+          <button type="button" data-vtab="result" class="tco-vtab-result">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20V6M4 20h16M8 20v-6M13 20V10M18 20V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <span data-i18n="calcResultTab">Comparison</span>
+          </button>
+        </div>
+
+        <!-- Vehicle A -->
+        <div class="tco-veh-config" id="tcoVehConfigA">
+          <p class="tco-scenario-section-label" data-i18n="scenarioLabel">Financing form</p>
+          <div class="tco-fin-cards" id="tcoFinCardsA"><!-- injected --></div>
+          <p class="tco-scenario-section-label" data-i18n="vehicleCategory">Vehicle category</p>
+          <div class="tco-class-grid" id="tcoClassGridA"><!-- injected --></div>
+          <div id="tcoCalcGridA"><!-- energy + ownership rate grid --></div>
+          <div class="tco-rate-grid tco-ev-extra" id="tcoEvExtraA">
+            <div class="tco-field">
+              <label data-i18n="evConsumption">EV consumption</label>
+              <div class="tco-input-wrap"><input type="number" inputmode="decimal" step="0.5" min="0" id="tcoCalcKwhA" value="18" /><span class="tco-affix">kWh/100km</span></div>
+            </div>
+            <div class="tco-field">
+              <label data-i18n="acShare">AC charging share</label>
+              <div class="tco-input-wrap"><input type="number" inputmode="numeric" step="5" min="0" max="100" id="tcoCalcAcShareA" value="70" /><span class="tco-affix">%</span></div>
+            </div>
+            <div class="tco-field">
+              <label data-i18n="gridCo2">Grid CO&#8322;</label>
+              <div class="tco-input-wrap"><input type="number" inputmode="numeric" step="1" min="0" id="tcoCalcCo2A" value="328" /><span class="tco-affix">g/kWh</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vehicle B -->
+        <div class="tco-veh-config" id="tcoVehConfigB" hidden>
+          <div class="tco-veh-b-head">
+            <span class="tco-scenario-section-label" data-i18n="calcVehB">Vehicle B</span>
+            <button type="button" class="tco-hero-ghost-btn tco-mini-ghost" id="tcoCalcCopyA" data-i18n="calcCopyA">Copy from A</button>
+          </div>
+          <p class="tco-scenario-section-label" data-i18n="scenarioLabel">Financing form</p>
+          <div class="tco-fin-cards" id="tcoFinCardsB"><!-- injected --></div>
+          <p class="tco-scenario-section-label" data-i18n="vehicleCategory">Vehicle category</p>
+          <div class="tco-class-grid" id="tcoClassGridB"><!-- injected --></div>
+          <div id="tcoCalcGridB"><!-- energy + ownership rate grid --></div>
+          <div class="tco-rate-grid tco-ev-extra" id="tcoEvExtraB">
+            <div class="tco-field">
+              <label data-i18n="evConsumption">EV consumption</label>
+              <div class="tco-input-wrap"><input type="number" inputmode="decimal" step="0.5" min="0" id="tcoCalcKwhB" value="18" /><span class="tco-affix">kWh/100km</span></div>
+            </div>
+            <div class="tco-field">
+              <label data-i18n="acShare">AC charging share</label>
+              <div class="tco-input-wrap"><input type="number" inputmode="numeric" step="5" min="0" max="100" id="tcoCalcAcShareB" value="70" /><span class="tco-affix">%</span></div>
+            </div>
+            <div class="tco-field">
+              <label data-i18n="gridCo2">Grid CO&#8322;</label>
+              <div class="tco-input-wrap"><input type="number" inputmode="numeric" step="1" min="0" id="tcoCalcCo2B" value="328" /><span class="tco-affix">g/kWh</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- single-vehicle result -->
+        <div class="tco-calc-result" id="tcoCalcResult"><!-- projection injected --></div>
+
+        <!-- comparison result -->
+        <div class="tco-calc-compare" id="tcoCalcCompare" hidden>
+          <div class="tco-cmp-chart" id="tcoCalcChart"><!-- SVG injected --></div>
+          <div class="tco-cmp-table" id="tcoCalcCmpTable"><!-- table injected --></div>
+        </div>
+      </div>
+
+      <div class="tco-modal-foot">
+        <button class="tco-ghost-btn" id="tcoCalcPdf" data-i18n="exportPdf">Export PDF</button>
+        <div class="tco-modal-foot-right">
+          <button class="tco-ghost-btn" id="tcoCalcXls" data-i18n="exportExcel">Export Excel</button>
+          <button class="tco-primary-btn" id="tcoScenarioX2" data-i18n="closeBtn">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Vehicle breakdown modal ===== -->
+  <div id="tcoModal" class="tco-modal" hidden>
+    <div class="tco-modal-backdrop" data-close-modal></div>
+    <div class="tco-modal-card" role="dialog" aria-modal="true" aria-labelledby="tcoModalTitle">
+      <div class="tco-modal-head">
+        <div>
+          <div class="tco-modal-title" id="tcoModalTitle">Cost Breakdown</div>
+          <div class="tco-modal-sub" id="tcoModalSub">Current period</div>
+        </div>
+        <button class="tco-modal-close" data-close-modal data-i18n-title="close" title="Close">&times;</button>
+      </div>
+
+      <div class="tco-modal-body">
+        <div class="tco-rate-grid" id="tcoRateGrid"><!-- inputs injected by main.js --></div>
+
+        <div class="tco-breakdown" id="tcoBreakdown"><!-- computed lines injected by main.js --></div>
+
+        <div class="tco-sessions" id="tcoSessions">
+          <div class="tco-sessions-head"><span data-i18n="chargeSessions">Charge sessions this period</span> <span id="tcoSessionsCount" class="tco-muted"></span></div>
+          <div class="tco-sessions-list" id="tcoSessionsList"><!-- session rows injected by main.js --></div>
+        </div>
+
+        <p class="tco-modal-note" id="tcoModalNote"></p>
+      </div>
+
+      <div class="tco-modal-foot">
+        <button class="tco-ghost-btn" id="tcoResetRates" data-i18n-title="resetVehTitle" title="Clear this vehicle's overrides" data-i18n="resetToDefaults">Reset to defaults</button>
+        <div class="tco-modal-foot-right">
+          <button class="tco-ghost-btn" data-close-modal data-i18n="cancel">Cancel</button>
+          <button class="tco-primary-btn" id="tcoSaveRates" data-i18n="save">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Fleet default rates modal ===== -->
+  <div id="tcoDefaultsModal" class="tco-modal" hidden>
+    <div class="tco-modal-backdrop" data-close-defaults></div>
+    <div class="tco-modal-card tco-modal-card-sm" role="dialog" aria-modal="true" aria-labelledby="tcoDefaultsTitle">
+      <div class="tco-modal-head">
+        <div>
+          <div class="tco-modal-title" id="tcoDefaultsTitle" data-i18n="fleetDefaultRates">Fleet Default Rates</div>
+          <div class="tco-modal-sub" data-i18n="fleetDefaultSub">Applied to every vehicle without its own override</div>
+        </div>
+        <button class="tco-modal-close" data-close-defaults data-i18n-title="close" title="Close">&times;</button>
+      </div>
+      <div class="tco-modal-body">
+        <div class="tco-rate-grid" id="tcoDefaultsGrid"><!-- inputs injected by main.js --></div>
+      </div>
+      <div class="tco-modal-foot">
+        <button class="tco-ghost-btn" id="tcoResetDefaults" data-i18n="restoreBuiltIn">Restore built-in defaults</button>
+        <div class="tco-modal-foot-right">
+          <button class="tco-ghost-btn" data-close-defaults data-i18n="cancel">Cancel</button>
+          <button class="tco-primary-btn" id="tcoSaveDefaults" data-i18n="save">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Classify vehicles modal ===== -->
+  <div id="tcoClassifyModal" class="tco-modal" hidden>
+    <div class="tco-modal-backdrop" data-close-classify></div>
+    <div class="tco-modal-card tco-modal-card-sm tco-classify-card" role="dialog" aria-modal="true" aria-labelledby="tcoClassifyTitle">
+      <div class="tco-modal-head">
+        <div>
+          <div class="tco-modal-title" id="tcoClassifyTitle" data-i18n="classifyTitle">Classify vehicles</div>
+          <div class="tco-modal-sub" data-i18n="classifyModalSub">Set the energy source and financing form per vehicle. Anything left on &ldquo;fleet default&rdquo; follows the standard fleet rates.</div>
+        </div>
+        <button class="tco-modal-close" data-close-classify data-i18n-title="close" title="Close">&times;</button>
+      </div>
+      <div class="tco-modal-body">
+        <div class="tco-classify-list" id="tcoClassifyList"><!-- rows injected by main.js --></div>
+      </div>
+      <div class="tco-modal-foot">
+        <div class="tco-modal-foot-right">
+          <button class="tco-ghost-btn" data-close-classify data-i18n="cancel">Cancel</button>
+          <button class="tco-primary-btn" id="tcoSaveClassify" data-i18n="classifyApply">Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== "The road to success" modal (Advice) ===== -->
+  <div id="tcoRoadModal" class="tco-modal" hidden>
+    <div class="tco-modal-backdrop" data-close-road></div>
+    <div class="tco-modal-card tco-road-card" role="dialog" aria-modal="true" aria-labelledby="tcoRoadTitle">
+      <div class="tco-modal-head">
+        <div>
+          <div class="tco-modal-title" id="tcoRoadTitle" data-i18n="roadToSuccess">The road to success</div>
+          <div class="tco-modal-sub" data-i18n="roadModalSub">Your recommendations stacked up to the total &mdash; biggest saving first.</div>
+        </div>
+        <button class="tco-modal-close" data-close-road data-i18n-title="close" title="Close">&times;</button>
+      </div>
+      <div class="tco-modal-body">
+        <div class="tco-goals-road" id="tcoGoalsRoad"><!-- SVG injected by main.js --></div>
+      </div>
+      <div class="tco-modal-foot">
+        <button type="button" class="tco-ghost-btn" id="tcoRoadExport" data-i18n="roadExport">Export as image</button>
+        <div class="tco-modal-foot-right">
+          <button class="tco-primary-btn" data-close-road data-i18n="closeBtn">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tcoSolutionModal" class="tco-modal" hidden>
+    <div class="tco-modal-backdrop" data-close-solution></div>
+    <div class="tco-modal-card tco-solution-card" role="dialog" aria-modal="true" aria-labelledby="tcoSolutionTitle">
+      <div class="tco-modal-head">
+        <div>
+          <div class="tco-solution-kicker" id="tcoSolutionKicker" data-i18n="solutionKicker">Solution</div>
+          <div class="tco-modal-title" id="tcoSolutionTitle"><!-- set by main.js --></div>
+        </div>
+        <button class="tco-modal-close" data-close-solution data-i18n-title="close" title="Close">&times;</button>
+      </div>
+      <div class="tco-modal-body" id="tcoSolutionBody"><!-- set by main.js --></div>
+      <div class="tco-modal-foot">
+        <div class="tco-modal-foot-right">
+          <button class="tco-primary-btn" data-close-solution data-i18n="closeBtn">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tcoDisclaimerModal" class="tco-modal" hidden>
+    <div class="tco-modal-backdrop" data-close-disclaimer></div>
+    <div class="tco-modal-card tco-modal-card-sm" role="dialog" aria-modal="true" aria-labelledby="tcoDisclaimerTitle">
+      <div class="tco-modal-head">
+        <div>
+          <div class="tco-modal-title" id="tcoDisclaimerTitle" data-i18n="disclaimerTitle">Disclaimer</div>
+        </div>
+        <button class="tco-modal-close" data-close-disclaimer data-i18n-title="close" title="Close">&times;</button>
+      </div>
+      <div class="tco-modal-body" id="tcoDisclaimerBody"><!-- set by main.js --></div>
+      <div class="tco-modal-foot">
+        <div class="tco-modal-foot-right">
+          <button class="tco-primary-btn" data-close-disclaimer data-i18n="closeBtn">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- print-only container for the calculator's PDF export -->
+  <div id="tcoCalcReport" aria-hidden="true"></div>
+
+  <script type="text/javascript" src="main.js"></script>
+</body>
+</html>
