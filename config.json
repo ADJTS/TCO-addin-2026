@@ -1,0 +1,17 @@
+{
+  "name": "Total Cost of Ownership Dashboard",
+  "supportEmail": "servicedesk@transscope.nl",
+  "version": "1.1.0",
+  "items": [
+    {
+      "url": "index.html",
+      "path": "ActivityLink/",
+      "menuName": {
+        "en": "Total Cost of Ownership",
+        "nl": "Total Cost of Ownership"
+      },
+      "icon": "icon.svg"
+    }
+  ],
+  "isSigned": false
+}
