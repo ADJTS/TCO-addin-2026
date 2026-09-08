@@ -2768,6 +2768,27 @@
           renderModalBreakdown();
         });
       });
+
+      // Visible diagnostic: sessions exist but no energy field is populated.
+      // Shows what the raw ChargeEvent actually contains so the right field can
+      // be wired in - screenshot this panel.
+      var allZero = evs.length && evs.every(function (ce) { return energyOf(ce) === 0; });
+      if (allZero) {
+        var s = evs[0] || {};
+        var pairs = Object.keys(s).sort().map(function (k) {
+          var val = s[k];
+          if (val && typeof val === "object") val = (val.id ? "{id:" + val.id + "}" : "{…}");
+          return k + " = " + val;
+        });
+        el.tcoSessionsList.insertAdjacentHTML("beforeend",
+          '<div class="tco-energy-diag">' +
+            '<b>' + (LANG === "nl" ? "Diagnose: geen laadenergie in de data" : "Diagnostic: no charge energy in the data") + '</b>' +
+            '<p>' + (LANG === "nl"
+              ? "Er zijn wel laadsessies, maar geen van de bekende energievelden is gevuld. Dit is de inhoud van één sessie zoals MyGeotab die teruggeeft — maak hier een screenshot van:"
+              : "Sessions exist but none of the known energy fields is filled. This is one raw session as MyGeotab returns it — screenshot this:") + '</p>' +
+            '<pre>' + escapeHtml(pairs.join("\n")) + '</pre>' +
+          '</div>');
+      }
     }
     function segBtn(ceId, seg, active, autoClass) {
       var label = seg === "auto" ? ("Auto" + (autoClass ? " · " + autoClass.toUpperCase() : "")) : seg.toUpperCase();

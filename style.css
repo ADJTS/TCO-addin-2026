@@ -530,6 +530,20 @@ button.tco-fuel-badge.unknown:hover { filter: brightness(1.08); }
   .tco-classify-sig { grid-column: 1 / -1; }
 }
 
+.tco-energy-diag {
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--tco-brass-soft); border: 1px solid var(--tco-amber);
+  border-radius: 6px; font-size: 12px; color: var(--tco-ink);
+}
+.tco-energy-diag b { color: var(--tco-amber); }
+.tco-energy-diag p { margin: 4px 0 6px; }
+.tco-energy-diag pre {
+  margin: 0; padding: 8px; background: var(--tco-surface);
+  border: 1px solid var(--tco-border); border-radius: 4px;
+  font-family: "IBM Plex Mono", monospace; font-size: 10.5px;
+  white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto;
+}
+
 .tco-action-cell { display: flex; gap: 6px; justify-content: flex-end; }
 .tco-mini-btn {
   font: inherit;
