@@ -530,6 +530,23 @@ button.tco-fuel-badge.unknown:hover { filter: brightness(1.08); }
   .tco-classify-sig { grid-column: 1 / -1; }
 }
 
+/* ---- vehicle-table multi-select checkbox column ---- */
+.tco-th-check { width: 34px; padding-left: 16px !important; padding-right: 4px !important; }
+.tco-th-check input[type="checkbox"],
+.tco-veh-check { width: 15px; height: 15px; accent-color: var(--tco-accent); cursor: pointer; vertical-align: middle; }
+
+/* ---- bulk setup wizard ---- */
+.tco-bulk-progress { display: flex; gap: 6px; margin-bottom: 14px; }
+.tco-bulk-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tco-border); flex: none; }
+.tco-bulk-dot.is-done { background: var(--tco-accent); }
+.tco-bulk-dot.is-current { background: var(--tco-brass); transform: scale(1.35); }
+.tco-bulk-vehname {
+  font-family: "Hanken Grotesk", "Inter", sans-serif;
+  font-size: 17px; font-weight: 800; letter-spacing: -.01em;
+  color: var(--tco-ink);
+  margin-bottom: 16px;
+}
+
 .tco-energy-diag {
   margin-top: 10px; padding: 10px 12px;
   background: var(--tco-brass-soft); border: 1px solid var(--tco-amber);
@@ -831,7 +848,24 @@ button.tco-fuel-badge.unknown:hover { filter: brightness(1.08); }
 
 /* ---- Sessions ---- */
 .tco-sessions { margin-top: 18px; }
-.tco-sessions-head { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: .1em; color: var(--tco-ink-400); margin-bottom: 10px; }
+.tco-sessions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--tco-ink-400);
+  margin-bottom: 10px;
+}
+.tco-seg-bulk { display: inline-flex; align-items: center; gap: 8px; }
+.tco-seg-bulk-label { font-weight: 500; }
+.tco-seg-bulk-btns button { padding: 5px 11px; }
+.tco-seg-bulk[hidden] { display: none; }
 .tco-sessions-list { display: flex; flex-direction: column; gap: 6px; max-height: 210px; overflow-y: auto; }
 .tco-session-row {
   display: flex;

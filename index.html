@@ -132,6 +132,7 @@
           </span>
         </div>
         <div class="tco-panel-head-actions">
+          <button id="tcoBulkConfigBtn" class="tco-mini-btn solid" hidden></button>
           <button id="tcoClassifyBtn" class="tco-ghost-btn" data-i18n-title="classifyTitle" title="Classify vehicles" data-i18n="classifyBtn">Classify</button>
           <button id="tcoResetAllBtn" class="tco-ghost-btn tco-reset-btn" data-i18n-title="resetAllTitle" title="Reset everything to defaults"><span data-i18n="resetAll">&#8635; Reset all</span></button>
           <button id="tcoExportBtn" class="tco-ghost-btn" data-i18n-title="csvTitle" title="Copy table as CSV" data-i18n="copyCsv">Copy CSV</button>
@@ -142,6 +143,7 @@
         <table class="tco-table">
           <thead>
             <tr>
+              <th class="tco-th-check"><input type="checkbox" id="tcoSelectAllVeh" data-i18n-title="selectAllVehTitle" title="Select all vehicles" /></th>
               <th data-i18n="colVehicle">Vehicle</th>
               <th class="tco-num" data-i18n="colTrips">Trips</th>
               <th class="tco-num" data-i18n="colDistance">Distance</th>
@@ -158,7 +160,7 @@
             </tr>
           </thead>
           <tbody id="tcoTableBody">
-            <tr><td colspan="13" class="tco-loading-row" data-i18n="connecting">Connecting to MyGeotab&hellip;</td></tr>
+            <tr><td colspan="14" class="tco-loading-row" data-i18n="connecting">Connecting to MyGeotab&hellip;</td></tr>
           </tbody>
           <tfoot id="tcoTableFoot"><!-- populated by main.js --></tfoot>
         </table>
@@ -362,7 +364,17 @@
         <div class="tco-breakdown" id="tcoBreakdown"><!-- computed lines injected by main.js --></div>
 
         <div class="tco-sessions" id="tcoSessions">
-          <div class="tco-sessions-head"><span data-i18n="chargeSessions">Charge sessions this period</span> <span id="tcoSessionsCount" class="tco-muted"></span></div>
+          <div class="tco-sessions-head">
+            <span><span data-i18n="chargeSessions">Charge sessions this period</span> <span id="tcoSessionsCount" class="tco-muted"></span></span>
+            <span class="tco-seg-bulk" id="tcoSessionsBulk">
+              <span class="tco-seg-bulk-label" data-i18n="bulkSetLabel">Set all to</span>
+              <span class="tco-seg tco-seg-bulk-btns">
+                <button type="button" data-bulk="ac">AC</button>
+                <button type="button" data-bulk="dc">DC</button>
+                <button type="button" data-bulk="auto" data-i18n="segAuto">Auto</button>
+              </span>
+            </span>
+          </div>
           <div class="tco-sessions-list" id="tcoSessionsList"><!-- session rows injected by main.js --></div>
         </div>
 
@@ -421,6 +433,31 @@
         <div class="tco-modal-foot-right">
           <button class="tco-ghost-btn" data-close-classify data-i18n="cancel">Cancel</button>
           <button class="tco-primary-btn" id="tcoSaveClassify" data-i18n="classifyApply">Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tcoBulkModal" class="tco-modal" hidden>
+    <div class="tco-modal-backdrop" data-close-bulk></div>
+    <div class="tco-modal-card tco-modal-card-sm tco-bulk-card" role="dialog" aria-modal="true" aria-labelledby="tcoBulkTitle">
+      <div class="tco-modal-head">
+        <div>
+          <div class="tco-modal-title" id="tcoBulkTitle" data-i18n="bulkModalTitle">Set up financing &amp; rates</div>
+          <div class="tco-modal-sub" id="tcoBulkSub"><!-- "Vehicle 2 of 5" --></div>
+        </div>
+        <button class="tco-modal-close" data-close-bulk data-i18n-title="close" title="Close">&times;</button>
+      </div>
+      <div class="tco-modal-body">
+        <div class="tco-bulk-progress" id="tcoBulkProgress"><!-- step dots injected by main.js --></div>
+        <div class="tco-bulk-vehname" id="tcoBulkVehName"></div>
+        <div class="tco-rate-grid" id="tcoBulkGrid"><!-- financing fields injected by main.js --></div>
+      </div>
+      <div class="tco-modal-foot">
+        <button type="button" class="tco-ghost-btn" id="tcoBulkPrev" data-i18n="bulkPrev">Previous</button>
+        <div class="tco-modal-foot-right">
+          <button type="button" class="tco-ghost-btn" data-close-bulk data-i18n="cancel">Cancel</button>
+          <button type="button" class="tco-primary-btn" id="tcoBulkNext" data-i18n="bulkNext">Next</button>
         </div>
       </div>
     </div>

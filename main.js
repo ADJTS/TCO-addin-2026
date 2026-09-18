@@ -83,6 +83,7 @@
       cancel: "Cancel", apply: "Apply", save: "Save", resetToDefaults: "Reset to defaults",
       resetVehTitle: "Clear this vehicle's overrides and use the fleet defaults",
       chargeSessions: "Charge sessions this period",
+      bulkSetLabel: "Set all sessions to", segAuto: "Auto",
       fleetDefaultRates: "Fleet Default Rates", fleetDefaultSub: "Applied to every vehicle without its own override",
       restoreBuiltIn: "Restore built-in defaults",
       finOpName: "Operational lease", finOpDesc: "All-in monthly price. Road tax, insurance & depreciation are in the lease rate.",
@@ -156,7 +157,14 @@
       classifyWarnMany: "{n} vehicles are running on the fleet-default energy source — their type was not detected.",
       classifyWarnCta: "Classify vehicles",
       badgeUnknown: "?", badgeUnknownTitle: "Energy source not confirmed — using the fleet default. Click to classify.",
-      assumedFlag: "assumed"
+      assumedFlag: "assumed",
+      bulkConfigBtn: "Set up selected ({n})",
+      bulkModalTitle: "Set up financing & rates",
+      bulkVehOf: "Vehicle {i} of {n}",
+      bulkFinancingLabel: "Financing form",
+      bulkNext: "Next", bulkFinish: "Finish", bulkPrev: "Previous",
+      bulkDone: "All set — {n} vehicles updated.",
+      selectVehTitle: "Select this vehicle", selectAllVehTitle: "Select all vehicles"
     },
     nl: {
       appTitle: "Total Cost of Ownership", appEyebrow: "Wagenparkfinanciën",
@@ -182,6 +190,7 @@
       cancel: "Annuleren", apply: "Toepassen", save: "Opslaan", resetToDefaults: "Terug naar standaard",
       resetVehTitle: "Overrides van dit voertuig wissen en de standaardtarieven gebruiken",
       chargeSessions: "Laadsessies deze periode",
+      bulkSetLabel: "Alle sessies instellen op", segAuto: "Auto",
       fleetDefaultRates: "Standaardtarieven wagenpark", fleetDefaultSub: "Van toepassing op elk voertuig zonder eigen override",
       restoreBuiltIn: "Ingebouwde standaard herstellen",
       finOpName: "Operationele lease", finOpDesc: "All-in maandbedrag. Wegenbelasting, verzekering & afschrijving zitten in het leasetarief.",
@@ -255,7 +264,14 @@
       classifyWarnMany: "{n} voertuigen draaien op de standaard energiebron van het wagenpark — hun type is niet gedetecteerd.",
       classifyWarnCta: "Voertuigen classificeren",
       badgeUnknown: "?", badgeUnknownTitle: "Energiebron niet bevestigd — wagenparkstandaard wordt gebruikt. Klik om te classificeren.",
-      assumedFlag: "aanname"
+      assumedFlag: "aanname",
+      bulkConfigBtn: "Geselecteerde instellen ({n})",
+      bulkModalTitle: "Financiering & tarieven instellen",
+      bulkVehOf: "Voertuig {i} van {n}",
+      bulkFinancingLabel: "Financieringsvorm",
+      bulkNext: "Volgende", bulkFinish: "Afronden", bulkPrev: "Vorige",
+      bulkDone: "Klaar — {n} voertuigen bijgewerkt.",
+      selectVehTitle: "Dit voertuig selecteren", selectAllVehTitle: "Alle voertuigen selecteren"
     }
   };
   function t(key, vars) {
@@ -700,10 +716,11 @@
      "tcoLangBtn", "tcoThemeBtn", "tcoLangCode",
      "tcoMonthPills", "tcoMonthChart", "tcoMonthHint", "tcoHeroTcoValue", "tcoHeroTcoDelta",
      "tcoHeroGauge", "tcoHeroGaugeLegend",
-     "tcoModal", "tcoModalTitle", "tcoModalSub", "tcoRateGrid", "tcoBreakdown", "tcoSessions", "tcoSessionsList",
+     "tcoModal", "tcoModalTitle", "tcoModalSub", "tcoRateGrid", "tcoBreakdown", "tcoSessions", "tcoSessionsList", "tcoSessionsBulk",
      "tcoSessionsCount", "tcoModalNote", "tcoResetRates", "tcoSaveRates",
      "tcoDefaultsModal", "tcoDefaultsGrid", "tcoResetDefaults", "tcoSaveDefaults",
      "tcoClassifyBtn", "tcoClassifyWarn", "tcoClassifyModal", "tcoClassifyList", "tcoSaveClassify",
+     "tcoSelectAllVeh", "tcoBulkConfigBtn", "tcoBulkModal", "tcoBulkSub", "tcoBulkVehName", "tcoBulkProgress", "tcoBulkGrid", "tcoBulkPrev", "tcoBulkNext",
      "tcoScenarioModal", "tcoScenarioX", "tcoScenarioX2", "tcoScenarioBackdrop",
      "tcoTermSlider", "tcoTermVal", "tcoFleetModes",
      "tcoCalcKm", "tcoCalcPeriod", "tcoCalcTermWrap", "tcoCalcResult", "tcoCalcPdf", "tcoCalcXls", "tcoCalcReport",
@@ -2354,10 +2371,16 @@
       return '<span class="tco-veh-glyph" aria-hidden="true">' + CAR_ICONS[van ? "suv" : "sedan"] + '</span>';
     }
 
+    var selectedVeh = new Set();
     function renderTable(model) {
       var v = model.vehicles;
       var uniqMode = singleMode(v);
       var INCL_CELL = inclCell();
+
+      // drop selections for vehicles that fell out of this view (period/refresh)
+      var liveIds = {};
+      v.forEach(function (row) { liveIds[row.id] = true; });
+      selectedVeh.forEach(function (id) { if (!liveIds[id]) selectedVeh.delete(id); });
 
       // relabel the mode-dependent capital column
       el.tcoThCapital.innerHTML = (uniqMode ? capitalLabel(uniqMode) : t("capMixed")) + " &euro;";
@@ -2372,9 +2395,10 @@
           : "energy + financing + road tax + insurance + maintenance (per-vehicle)");
 
       if (!v.length) {
-        el.tcoTableBody.innerHTML = '<tr><td colspan="13" class="tco-loading-row">' + t("noVehicles") + '</td></tr>';
+        el.tcoTableBody.innerHTML = '<tr><td colspan="14" class="tco-loading-row">' + t("noVehicles") + '</td></tr>';
         el.tcoTableFoot.innerHTML = "";
         renderClassifyWarn(model);
+        updateBulkConfigBtn();
         return;
       }
       var NLt = LANG === "nl";
@@ -2420,6 +2444,8 @@
           ? '<span class="tco-est-flag is-assumed" title="' + escapeHtml(t("badgeUnknownTitle")) + '">' + t("assumedFlag") + '</span>'
           : (estimated ? '<span class="tco-est-flag" title="' + (LANG === "nl" ? "Gebruikt standaardtarieven" : "Using fleet default rates") + '">' + t("est") + '</span>' : '');
         return '<tr>' +
+          '<td class="tco-th-check"><input type="checkbox" class="tco-veh-check" data-id="' + escapeHtml(row.id) + '"' +
+            (selectedVeh.has(row.id) ? " checked" : "") + ' title="' + escapeHtml(t("selectVehTitle")) + '" /></td>' +
           '<td>' + vehGlyph(row) + '<a class="tco-veh-link" data-open-device data-id="' + escapeHtml(row.id) + '">' + escapeHtml(row.name) + '</a>' + fb + flag + '</td>' +
           '<td class="tco-num">' + row.tripCount + '</td>' +
           '<td class="tco-num">' + fmtKm(row.distanceKm) + '</td>' +
@@ -2442,6 +2468,7 @@
       var footIns = allOp ? INCL_CELL : '<td class="tco-num">' + fmtEur(sums(v, "insurance")) + '</td>';
       var footMaint = allOp ? INCL_CELL : '<td class="tco-num">' + fmtEur(sums(v, "maintenance")) + '</td>';
       el.tcoTableFoot.innerHTML = '<tr>' +
+        '<td></td>' +
         '<td>' + t("fleetTotal") + '</td>' +
         '<td class="tco-num">' + sums(v, "tripCount") + '</td>' +
         '<td class="tco-num">' + fmtKm(sums(v, "distanceKm")) + '</td>' +
@@ -2456,6 +2483,31 @@
       '</tr>';
 
       renderClassifyWarn(model);
+      updateBulkConfigBtn();
+    }
+
+    // ---- Multi-select vehicles -> bulk financing/rates wizard ----------
+    function updateBulkConfigBtn() {
+      if (!el.tcoBulkConfigBtn) return;
+      var n = selectedVeh.size;
+      el.tcoBulkConfigBtn.hidden = n === 0;
+      if (n > 0) el.tcoBulkConfigBtn.textContent = t("bulkConfigBtn", { n: n });
+      if (el.tcoSelectAllVeh && lastModel) {
+        var total = lastModel.vehicles.length;
+        el.tcoSelectAllVeh.checked = total > 0 && n === total;
+        el.tcoSelectAllVeh.indeterminate = n > 0 && n < total;
+      }
+    }
+    function toggleVehSelected(id, checked) {
+      if (checked) selectedVeh.add(id); else selectedVeh.delete(id);
+      updateBulkConfigBtn();
+    }
+    function setAllVehSelected(checked) {
+      if (!lastModel) return;
+      selectedVeh.clear();
+      if (checked) lastModel.vehicles.forEach(function (v) { selectedVeh.add(v.id); });
+      el.tcoTableBody.querySelectorAll(".tco-veh-check").forEach(function (cb) { cb.checked = checked; });
+      updateBulkConfigBtn();
     }
 
     function renderClassifyWarn(model) {
@@ -2662,6 +2714,119 @@
       return out;
     }
 
+    // A compact grid — financing form + only the fields that form implies
+    // (road tax / insurance / maintenance, or purchase & residual, or lease
+    // amount). No energy/fuel-type section — this is the fast bulk-setup path,
+    // the full grid (with energy) still lives in Breakdown.
+    function buildFinanceGrid(gridEl, src, overKeys) {
+      overKeys = overKeys || [];
+      var NL = LANG === "nl";
+      var finOverride = src.financingMode || "";
+      var effMode = finOverride || getScenario().financingMode || "buy";
+      function ov(k) { return overKeys.indexOf(k) !== -1; }
+      var finOpts = [
+        ["", NL ? "Wagenpark standaard" : "Fleet default"],
+        ["operational", t("finLabelOperational")],
+        ["financial", t("finLabelFinancial")],
+        ["buy", t("finLabelBuy")]
+      ];
+      var finRow =
+        '<input type="hidden" data-rate-key="financingMode" value="' + escapeHtml(finOverride) + '" />' +
+        '<div class="tco-field tco-field-wide">' +
+          '<label>' + escapeHtml(t("bulkFinancingLabel")) + '</label>' +
+          '<div class="tco-fintoggle" role="tablist">' +
+            finOpts.map(function (o) {
+              return '<button type="button" data-fin="' + o[0] + '" class="' + (o[0] === finOverride ? "is-active" : "") + '">' + escapeHtml(o[1]) + '</button>';
+            }).join("") +
+          '</div>' +
+          '<span class="tco-hint">' + (finOverride
+            ? (NL ? "Override voor dit voertuig." : "Override for this vehicle.")
+            : (NL ? "Volgt de wagenpark­standaard (" : "Follows the fleet default (") + escapeHtml(FINANCING_LABELS[getScenario().financingMode || "buy"]) + ")") + '</span>' +
+        '</div>';
+      var ownGrid = fieldsForMode(effMode).map(function (f) {
+        return fieldHtml(f, src[f.key], ov(f.key) || (f.unitKey && ov(f.unitKey)), f.unitKey ? src[f.unitKey] : null);
+      }).join("");
+      gridEl.innerHTML =
+        '<div class="tco-rate-grid">' + finRow + '</div>' +
+        '<div class="tco-rate-grid">' + ownGrid + '</div>';
+      gridEl.querySelectorAll(".tco-fintoggle button").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var snap = readGridRates(gridEl);
+          snap.financingMode = btn.getAttribute("data-fin");
+          buildFinanceGrid(gridEl, snap, overKeys);
+        });
+      });
+    }
+
+    // ---- Bulk setup wizard: walk selected vehicles one at a time --------
+    var bulkState = null; // { ids: [...], index: 0 }
+    function openBulkModal() {
+      if (!el.tcoBulkModal || !selectedVeh.size || !lastModel) return;
+      var ids = lastModel.vehicles.map(function (v) { return v.id; }).filter(function (id) { return selectedVeh.has(id); });
+      if (!ids.length) return;
+      bulkState = { ids: ids, index: 0 };
+      el.tcoBulkModal.hidden = false;
+      renderBulkStep();
+    }
+    function closeBulkModal() {
+      if (!el.tcoBulkModal) return;
+      el.tcoBulkModal.hidden = true;
+      var touched = !!bulkState;
+      bulkState = null;
+      if (touched) { selectedVeh.clear(); rebuildFromLastData(); }
+    }
+    function renderBulkStep() {
+      if (!bulkState) return;
+      var v = findVehicle(bulkState.ids[bulkState.index]);
+      if (!v) { closeBulkModal(); return; }
+      var n = bulkState.ids.length, i = bulkState.index;
+      if (el.tcoBulkSub) el.tcoBulkSub.textContent = t("bulkVehOf", { i: i + 1, n: n });
+      if (el.tcoBulkVehName) el.tcoBulkVehName.textContent = v.name;
+      if (el.tcoBulkProgress) {
+        el.tcoBulkProgress.innerHTML = bulkState.ids.map(function (id, idx) {
+          return '<span class="tco-bulk-dot' + (idx < i ? " is-done" : idx === i ? " is-current" : "") + '"></span>';
+        }).join("");
+      }
+      var resolved = resolveRates(v.id);
+      if (el.tcoBulkGrid) buildFinanceGrid(el.tcoBulkGrid, resolved.rates, resolved.overriddenKeys);
+      if (el.tcoBulkPrev) el.tcoBulkPrev.hidden = i === 0;
+      if (el.tcoBulkNext) el.tcoBulkNext.textContent = (i === n - 1) ? t("bulkFinish") : t("bulkNext");
+    }
+    function saveBulkStep() {
+      if (!bulkState || !el.tcoBulkGrid) return;
+      var v = findVehicle(bulkState.ids[bulkState.index]);
+      if (!v) return;
+      var rates = readGridRates(el.tcoBulkGrid);
+      var base = mergedDefaults();
+      var store = readJson(LS_VEHICLE, {});
+      var perVehicle = store[v.id] ? Object.assign({}, store[v.id]) : {};
+      Object.keys(rates).forEach(function (k) {
+        var val = rates[k];
+        if (k === "financingMode") {
+          if (val) perVehicle.financingMode = coerceRate(k, val); else delete perVehicle.financingMode;
+          return;
+        }
+        if (val === "" || val === undefined || val === null) return;
+        if (String(val) !== String(base[k])) perVehicle[k] = coerceRate(k, val); else delete perVehicle[k];
+      });
+      if (perVehicle.roadTaxUnit !== undefined && perVehicle.roadTax === undefined) delete perVehicle.roadTaxUnit;
+      if (Object.keys(perVehicle).length) store[v.id] = perVehicle; else delete store[v.id];
+      writeJson(LS_VEHICLE, store);
+    }
+    function bulkNext() {
+      if (!bulkState) return;
+      saveBulkStep();
+      if (bulkState.index >= bulkState.ids.length - 1) { closeBulkModal(); return; }
+      bulkState.index++;
+      renderBulkStep();
+    }
+    function bulkPrev() {
+      if (!bulkState || bulkState.index === 0) return;
+      saveBulkStep();
+      bulkState.index--;
+      renderBulkStep();
+    }
+
     function renderModalBreakdown() {
       var v = modalState.vehicle;
       var rates = readGridRates(el.tcoRateGrid);
@@ -2738,6 +2903,7 @@
       var v = modalState.vehicle;
       var evs = v.chargeEvents;
       el.tcoSessionsCount.textContent = "(" + evs.length + ")";
+      if (el.tcoSessionsBulk) el.tcoSessionsBulk.hidden = evs.length < 2;
       if (!evs.length) {
         el.tcoSessionsList.innerHTML = '<p class="tco-muted" style="font-size:12.5px;">' +
           (LANG === "nl" ? "Geen laadsessies geregistreerd in deze periode." : "No charge sessions recorded in this period.") + '</p>';
@@ -2791,8 +2957,20 @@
       }
     }
     function segBtn(ceId, seg, active, autoClass) {
-      var label = seg === "auto" ? ("Auto" + (autoClass ? " · " + autoClass.toUpperCase() : "")) : seg.toUpperCase();
+      var label = seg === "auto" ? (t("segAuto") + (autoClass ? " · " + autoClass.toUpperCase() : "")) : seg.toUpperCase();
       return '<button data-seg="' + seg + '" class="' + (active ? "is-active" : "") + '">' + label + '</button>';
+    }
+
+    // Bulk-classify every charge session for the vehicle currently open in
+    // Breakdown as AC, DC, or back to auto — a per-session override still
+    // wins afterwards (it's the same modalState.overrides map).
+    function bulkSetChargeType(seg) {
+      if (!modalState || !modalState.vehicle) return;
+      (modalState.vehicle.chargeEvents || []).forEach(function (ce) {
+        if (seg === "auto") delete modalState.overrides[ce.id];
+        else modalState.overrides[ce.id] = seg;
+      });
+      renderModalBreakdown();
     }
 
     function saveBreakdown() {
@@ -3892,6 +4070,7 @@
         openSolutionModal(lastSolution.kind, lastSolution.veh);
       if (el.tcoDisclaimerModal && !el.tcoDisclaimerModal.hidden) renderDisclaimer();
       if (el.tcoClassifyModal && !el.tcoClassifyModal.hidden) renderClassifyList();
+      if (el.tcoBulkModal && !el.tcoBulkModal.hidden && bulkState) renderBulkStep();
     }
     function toggleLang() {
       LANG = LANG === "nl" ? "en" : "nl";
@@ -4027,6 +4206,9 @@
       el.tcoSaveRates.addEventListener("click", saveBreakdown);
       el.tcoResetRates.addEventListener("click", resetBreakdown);
       el.tcoModal.querySelectorAll("[data-close-modal]").forEach(function (n) { n.addEventListener("click", closeModal); });
+      if (el.tcoSessionsBulk) el.tcoSessionsBulk.querySelectorAll("[data-bulk]").forEach(function (btn) {
+        btn.addEventListener("click", function () { bulkSetChargeType(btn.getAttribute("data-bulk")); });
+      });
 
       el.tcoSaveDefaults.addEventListener("click", saveDefaultsModal);
       el.tcoResetDefaults.addEventListener("click", resetDefaultsModal);
@@ -4043,8 +4225,20 @@
         if (e.target.closest("[data-open-classify]")) openClassifyModal();
       });
 
+      if (el.tcoSelectAllVeh) el.tcoSelectAllVeh.addEventListener("change", function () { setAllVehSelected(this.checked); });
+      el.tcoTableBody.addEventListener("change", function (e) {
+        var cb = e.target.closest(".tco-veh-check");
+        if (cb) toggleVehSelected(cb.getAttribute("data-id"), cb.checked);
+      });
+      if (el.tcoBulkConfigBtn) el.tcoBulkConfigBtn.addEventListener("click", openBulkModal);
+      if (el.tcoBulkNext) el.tcoBulkNext.addEventListener("click", bulkNext);
+      if (el.tcoBulkPrev) el.tcoBulkPrev.addEventListener("click", bulkPrev);
+      if (el.tcoBulkModal) el.tcoBulkModal.querySelectorAll("[data-close-bulk]").forEach(function (n) {
+        n.addEventListener("click", closeBulkModal);
+      });
+
       document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape") { el.tcoModal.hidden = true; el.tcoDefaultsModal.hidden = true; el.tcoScenarioModal.hidden = true; if (el.tcoRoadModal) el.tcoRoadModal.hidden = true; if (el.tcoClassifyModal) el.tcoClassifyModal.hidden = true; modalState = null; }
+        if (e.key === "Escape") { el.tcoModal.hidden = true; el.tcoDefaultsModal.hidden = true; el.tcoScenarioModal.hidden = true; if (el.tcoRoadModal) el.tcoRoadModal.hidden = true; if (el.tcoClassifyModal) el.tcoClassifyModal.hidden = true; if (el.tcoBulkModal && !el.tcoBulkModal.hidden) closeBulkModal(); modalState = null; }
       });
     }
 
