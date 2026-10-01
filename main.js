@@ -164,7 +164,17 @@
       bulkFinancingLabel: "Financing form",
       bulkNext: "Next", bulkFinish: "Finish", bulkPrev: "Previous",
       bulkDone: "All set — {n} vehicles updated.",
-      selectVehTitle: "Select this vehicle", selectAllVehTitle: "Select all vehicles"
+      selectVehTitle: "Select this vehicle", selectAllVehTitle: "Select all vehicles",
+      rdwFetchBtn: "Fetch from RDW", rdwFetching: "Looking up at RDW…",
+      rdwNotFound: "Plate not found at RDW — fill in manually.",
+      rdwError: "RDW could not be reached — fill in manually.",
+      rdwNoPlate: "No license plate known for this vehicle.",
+      rdwResult: "{w} kg · {fuel} · road tax estimated at {tax}/quarter — check and adjust.",
+      rdwResultConsumption: ", {c} L/100km",
+      rdwMultiFuel: " (hybrid — picked the primary fuel source; switch it above if needed)",
+      opcentenLabel: "Provincial surcharge (opcenten)",
+      opcentenHint: "Added on top of the national base rate — varies roughly 0–130% by province. Used only for the road-tax estimate from “Fetch from RDW”.",
+      rdwDisclaimer: "Indicative only — not an official calculation. Always verify with the Belastingdienst MRB calculator."
     },
     nl: {
       appTitle: "Total Cost of Ownership", appEyebrow: "Wagenparkfinanciën",
@@ -271,7 +281,17 @@
       bulkFinancingLabel: "Financieringsvorm",
       bulkNext: "Volgende", bulkFinish: "Afronden", bulkPrev: "Vorige",
       bulkDone: "Klaar — {n} voertuigen bijgewerkt.",
-      selectVehTitle: "Dit voertuig selecteren", selectAllVehTitle: "Alle voertuigen selecteren"
+      selectVehTitle: "Dit voertuig selecteren", selectAllVehTitle: "Alle voertuigen selecteren",
+      rdwFetchBtn: "Ophalen via RDW", rdwFetching: "Opzoeken bij RDW…",
+      rdwNotFound: "Kenteken niet gevonden bij RDW — vul handmatig in.",
+      rdwError: "RDW niet bereikbaar — vul handmatig in.",
+      rdwNoPlate: "Geen kenteken bekend voor dit voertuig.",
+      rdwResult: "{w} kg · {fuel} · wegenbelasting geschat op {tax}/kwartaal — controleer en pas aan.",
+      rdwResultConsumption: ", {c} L/100km",
+      rdwMultiFuel: " (hybride — primaire energiebron gebruikt; wissel hierboven indien gewenst)",
+      opcentenLabel: "Provinciale opcenten",
+      opcentenHint: "Komt bovenop het landelijke basistarief — varieert grofweg 0–130% per provincie. Alleen gebruikt voor de wegenbelasting-schatting bij “Ophalen via RDW”.",
+      rdwDisclaimer: "Alleen indicatief — geen officiële berekening. Controleer altijd bij de MRB-rekenhulp van de Belastingdienst."
     }
   };
   function t(key, vars) {
@@ -341,7 +361,8 @@
     maintenanceMonthly: 0,
     purchasePrice: 0,
     residualValue: 0,
-    termMonths: 48
+    termMonths: 48,
+    opcentenPct: 80      // provincial MRB surcharge, % added on top of the national base rate
   };
   var STRING_RATE_KEYS = { roadTaxUnit: true, fuelType: true, financingMode: true };
   var FINANCING_MODES = ["operational", "financial", "buy"];
@@ -398,6 +419,68 @@
   // /30-per-month proration used everywhere else.
   function roadTaxMonthly(rates) {
     return num(rates.roadTax) / (rates.roadTaxUnit === "month" ? 1 : 3);
+  }
+
+  // ---- Indicative NL motorrijtuigenbelasting (MRB) estimate --------------
+  // Anchor points read off the published 2026 weight-bracket tables
+  // (quarterly, petrol basis) — NOT an official calculation. Used only to
+  // pre-fill the editable "Road tax" field; the user can always overrule it.
+  var MRB_BASE_TABLE = [
+    [0, 75], [900, 75], [1000, 85], [1100, 95], [1200, 105], [1300, 115],
+    [1400, 125], [1500, 137], [1600, 150], [1700, 162], [1800, 175],
+    [1900, 187], [2000, 200]
+  ];
+  function mrbBaseQuarterly(weightKg) {
+    var w = Math.max(0, num(weightKg));
+    var rate = MRB_BASE_TABLE[0][1];
+    for (var i = 0; i < MRB_BASE_TABLE.length; i++) {
+      if (w >= MRB_BASE_TABLE[i][0]) rate = MRB_BASE_TABLE[i][1]; else break;
+    }
+    if (w > 2000) rate += Math.ceil((w - 2000) / 100) * 13; // extrapolate the same ~€13/100kg slope
+    return rate;
+  }
+  // Diesel pays roughly 2–2.5x petrol at the same weight (brandstoftoeslag);
+  // this uses the midpoint and excludes the separate fijnstoftoeslag.
+  function estimateRoadTaxQuarterly(weightKg, fuelType, opcentenPct) {
+    if (fuelType === "electric") return 0; // exempt through 2029
+    var base = mrbBaseQuarterly(weightKg) * (fuelType === "diesel" ? 2.25 : 1);
+    var pct = num(opcentenPct);
+    if (!(pct > 0)) pct = DEFAULT_RATES.opcentenPct;
+    return Math.round(base * (1 + pct / 100));
+  }
+
+  // ---- RDW Open Data lookup (kenteken -> weight / fuel / consumption) ----
+  function normalizePlate(p) { return String(p || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); }
+  function mapRdwFuelType(desc) {
+    var d = String(desc || "").toLowerCase();
+    if (d.indexOf("elektr") !== -1) return "electric";
+    if (d.indexOf("diesel") !== -1) return "diesel";
+    return "gasoline"; // benzine, LPG, CNG, waterstof -> closest of the 3 modelled types
+  }
+  function fetchRdwVehicle(plate) {
+    var pl = normalizePlate(plate);
+    if (!pl) return Promise.reject(new Error("no-plate"));
+    var q = "kenteken=" + encodeURIComponent(pl);
+    return Promise.all([
+      fetch("https://opendata.rdw.nl/resource/m9d7-ebf2.json?" + q).then(function (r) { return r.ok ? r.json() : []; }),
+      fetch("https://opendata.rdw.nl/resource/8ys7-d773.json?" + q).then(function (r) { return r.ok ? r.json() : []; })
+    ]).then(function (res) {
+      var veh = (res[0] || [])[0];
+      if (!veh) return null;
+      var fuels = (res[1] || []).slice().sort(function (a, b) {
+        return (parseInt(a.brandstof_volgnummer, 10) || 1) - (parseInt(b.brandstof_volgnummer, 10) || 1);
+      });
+      var primary = fuels[0] || {};
+      return {
+        weightKg: num(veh.massa_rijklaar) || num(veh.massa_ledig_voertuig) || 0,
+        catalogPrice: num(veh.catalogusprijs) || 0,
+        fuelType: mapRdwFuelType(primary.brandstof_omschrijving),
+        fuelDesc: primary.brandstof_omschrijving || "",
+        consumptionL100: num(primary.brandstofverbruik_gecombineerd) || 0,
+        co2: num(primary.co2_uitstoot_gecombineerd) || 0,
+        multiFuel: fuels.length > 1
+      };
+    });
   }
 
   var LS_DEFAULTS  = "tcoDefaults";
@@ -1960,7 +2043,8 @@
           sec("1. Doel", '<p>Het dashboard geeft indicatief inzicht in wagenparkkosten, energie- en brandstofverbruik, CO₂ en de total cost of ownership (TCO). Het is geen boekhoudkundig, fiscaal, juridisch, verzekerings- of beleggingsadvies.</p>') +
           sec("2. Herkomst en zuiverheid van de data", '<p>De weergegeven informatie komt uit twee bronnen:</p><ul>' +
             '<li><b>MyGeotab</b> — ritten, afstanden, laadsessies en gedragsgebeurtenissen. Deze data kan onvolledig zijn of onnauwkeurigheden, vertragingen, meetfouten of onjuiste classificaties bevatten. Zo wordt de AC/DC-verdeling geschat op basis van het piekvermogen per laadsessie.</li>' +
-            '<li><b>Zelf ingevoerde tarieven en parameters</b> — prijzen, lease, wegenbelasting, verzekering, onderhoud, financieringsvorm, aanschaf- en restwaarde en dergelijke. De juistheid en actualiteit hiervan zijn de verantwoordelijkheid van de gebruiker en bepalen rechtstreeks de uitkomsten.</li></ul>') +
+            '<li><b>Zelf ingevoerde tarieven en parameters</b> — prijzen, lease, wegenbelasting, verzekering, onderhoud, financieringsvorm, aanschaf- en restwaarde en dergelijke. De juistheid en actualiteit hiervan zijn de verantwoordelijkheid van de gebruiker en bepalen rechtstreeks de uitkomsten.</li>' +
+            '<li><b>RDW Open Data</b> (optioneel, via “Ophalen via RDW” op kenteken) — gewicht, brandstofsoort, verbruik en catalogusprijs. De wegenbelasting die hieruit wordt voorgesteld is een <b>indicatieve schatting</b> op basis van een vereenvoudigde gewichts-/brandstoftabel en de door u ingestelde provinciale opcenten — geen officiële berekening. Controleer altijd bij de rekenhulp van de Belastingdienst.</li></ul>') +
           sec("3. Berekeningen en aannames", '<p>Alle bedragen zijn schattingen. De berekeningen gebruiken modelmatige aannames, waaronder het omrekenen van maandbedragen als ÷ 30 × het aantal dagen in de gekozen periode, lineaire afschrijving en standaard CO₂-factoren (well-to-wheel). Werkelijke kosten en emissies kunnen hiervan afwijken.</p>') +
           sec("4. Aanbevelingen", '<p>De adviezen zijn heuristische signaleringen op basis van patronen in de wagenparkdata. Genoemde besparingen zijn indicatieve schattingen en vormen geen toezegging of garantie van resultaat.</p>') +
           sec("5. Geen rechten en vrijwaring", '<p>Aan dit dashboard en aan de daaruit voortkomende cijfers, aanbevelingen, projecties, grafieken en exports kunnen <b>geen rechten worden ontleend</b>. Transscope voertuigsystemen b.v. aanvaardt <b>geen enkele aansprakelijkheid</b> voor schade, kosten of gevolgen van beslissingen die voortvloeien uit het gebruik van dit dashboard of het vertrouwen op de uitkomsten daarvan. De gebruiker blijft te allen tijde zelf verantwoordelijk voor het verifiëren van de gegevens en voor de beslissingen die daarop worden gebaseerd.</p>');
@@ -1969,7 +2053,8 @@
         sec("1. Purpose", '<p>The dashboard gives an indicative view of fleet costs, energy and fuel use, CO₂ and the total cost of ownership (TCO). It is not accounting, tax, legal, insurance or investment advice.</p>') +
         sec("2. Data source and accuracy", '<p>The information shown comes from two sources:</p><ul>' +
           '<li><b>MyGeotab</b> — trips, distances, charge sessions and behaviour events. This data may be incomplete or contain inaccuracies, delays, measurement errors or misclassifications. For example, the AC/DC split is estimated from the peak power of each charge session.</li>' +
-          '<li><b>Rates and parameters you enter yourself</b> — prices, lease, road tax, insurance, maintenance, financing form, purchase and residual value, and so on. Their accuracy and currency are the user’s responsibility and directly determine the results.</li></ul>') +
+          '<li><b>Rates and parameters you enter yourself</b> — prices, lease, road tax, insurance, maintenance, financing form, purchase and residual value, and so on. Their accuracy and currency are the user’s responsibility and directly determine the results.</li>' +
+          '<li><b>RDW Open Data</b> (optional, via “Fetch from RDW” on license plate) — weight, fuel type, consumption and catalogue price. The road tax it proposes is an <b>indicative estimate</b> based on a simplified weight/fuel table and the provincial surcharge (opcenten) you set — not an official calculation. Always verify with the Belastingdienst’s own calculator.</li></ul>') +
         sec("3. Calculations and assumptions", '<p>All amounts are estimates. The calculations use modelling assumptions, including converting monthly amounts as ÷ 30 × the number of days in the selected period, straight-line depreciation and standard well-to-wheel CO₂ factors. Actual costs and emissions may differ.</p>') +
         sec("4. Recommendations", '<p>The advice consists of heuristic flags based on patterns in the fleet data. Any savings mentioned are indicative estimates and are not a commitment or a guarantee of results.</p>') +
         sec("5. No rights &amp; limitation of liability", '<p><b>No rights can be derived</b> from this dashboard or from the figures, recommendations, projections, charts and exports it produces. Transscope voertuigsystemen b.v. accepts <b>no liability whatsoever</b> for damage, costs or the consequences of decisions arising from the use of this dashboard or from reliance on its output. The user remains responsible at all times for verifying the data and for the decisions based on it.</p>');
@@ -2540,7 +2625,7 @@
       el.tcoModalTitle.textContent = (LANG === "nl" ? "Kostendetail — " : "Cost breakdown — ") + v.name;
       el.tcoModalSub.textContent = (FINANCING_LABELS[mode] || mode) + " · " + (isFossilType(v.fuelType) ? FUEL_LABELS[v.fuelType] : "EV") + " · " + periodLabel(lastModel.period.labelKey) + " (≈ " + displayDays(lastModel.periodDays) + (LANG === "nl" ? " dagen)" : " days)");
 
-      buildRateGrid(el.tcoRateGrid, v.rates, v.overriddenKeys, mode, renderModalBreakdown, true);
+      buildRateGrid(el.tcoRateGrid, v.rates, v.overriddenKeys, mode, renderModalBreakdown, true, v.licensePlate);
       renderModalBreakdown();
       el.tcoModal.hidden = false;
     }
@@ -2610,7 +2695,28 @@
     // `onRecompute` on any change. `src` supplies current values.
     // `financingToggle` adds a per-vehicle financing-form selector that reshapes
     // the ownership fields (used by the Breakdown modal).
-    function buildRateGrid(gridEl, src, overKeys, mode, onRecompute, financingToggle) {
+    // Shared "Fetch from RDW" button + status line, used by the Breakdown
+    // grid and the bulk-setup grid. Renders nothing when the vehicle has no
+    // known plate.
+    function rdwRowHtml(plate) {
+      if (!plate) return "";
+      return '<div class="tco-rdw-row">' +
+        '<button type="button" class="tco-rdw-btn" data-rdw-plate="' + escapeHtml(plate) + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M7 15h4M7 9h2m4 0h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="17" cy="15" r="1.4" fill="currentColor"/></svg>' +
+          escapeHtml(t("rdwFetchBtn")) +
+        '</button>' +
+        '<div class="tco-rdw-status" hidden></div>' +
+      '</div>';
+    }
+    function rdwSetStatus(gridEl, kind, text) {
+      var box = gridEl.querySelector(".tco-rdw-status");
+      if (!box) return;
+      box.hidden = false;
+      box.className = "tco-rdw-status" + (kind ? " is-" + kind : "");
+      box.textContent = text;
+    }
+
+    function buildRateGrid(gridEl, src, overKeys, mode, onRecompute, financingToggle, plate) {
       overKeys = overKeys || [];
       var ft = src.fuelType || "electric";
       var finOverride = src.financingMode || "";
@@ -2662,10 +2768,16 @@
                 ? (NL ? "Override voor dit voertuig." : "Override for this vehicle.")
                 : (NL ? "Volgt de wagenpark­standaard (" : "Follows the fleet default (") + (FINANCING_LABELS[getScenario().financingMode || "buy"]) + ")") + '</span>' +
           '</div>';
+        if (isFleet) {
+          finRow += fieldHtml(
+            { key: "opcentenPct", label: t("opcentenLabel"), affix: "", suffix: "%", step: "1", hint: t("opcentenHint") },
+            src.opcentenPct, ov("opcentenPct"));
+        }
       }
 
       gridEl.innerHTML =
         '<input type="hidden" data-rate-key="fuelType" value="' + escapeHtml(ft) + '" />' +
+        rdwRowHtml(plate) +
         '<div class="tco-dialog-group">' +
           '<div class="tco-dialog-group-h">' + (LANG === "nl" ? "Energiebron" : "Energy source") + '</div>' +
           '<div class="tco-fueltype" role="tablist">' +
@@ -2692,7 +2804,7 @@
         btn.addEventListener("click", function () {
           var snap = readGridRates(gridEl);
           snap.fuelType = btn.getAttribute("data-ft");
-          buildRateGrid(gridEl, snap, overKeys, mode, onRecompute, financingToggle);
+          buildRateGrid(gridEl, snap, overKeys, mode, onRecompute, financingToggle, plate);
           if (onRecompute) onRecompute();
         });
       });
@@ -2700,8 +2812,33 @@
         btn.addEventListener("click", function () {
           var snap = readGridRates(gridEl);
           snap.financingMode = btn.getAttribute("data-fin");
-          buildRateGrid(gridEl, snap, overKeys, mode, onRecompute, financingToggle);
+          buildRateGrid(gridEl, snap, overKeys, mode, onRecompute, financingToggle, plate);
           if (onRecompute) onRecompute();
+        });
+      });
+      var rdwBtn = gridEl.querySelector(".tco-rdw-btn");
+      if (rdwBtn) rdwBtn.addEventListener("click", function () {
+        rdwBtn.disabled = true;
+        rdwSetStatus(gridEl, "", t("rdwFetching"));
+        fetchRdwVehicle(plate).then(function (data) {
+          rdwBtn.disabled = false;
+          if (!data) { rdwSetStatus(gridEl, "error", t("rdwNotFound")); return; }
+          var snap = readGridRates(gridEl);
+          snap.fuelType = data.fuelType;
+          if (data.fuelType !== "electric" && data.consumptionL100 > 0) snap.fuelConsumption = data.consumptionL100;
+          var opcenten = mergedDefaults().opcentenPct;
+          var estTax = estimateRoadTaxQuarterly(data.weightKg, data.fuelType, opcenten);
+          snap.roadTax = estTax;
+          snap.roadTaxUnit = "quarter";
+          if ((!num(snap.purchasePrice) || num(snap.purchasePrice) === 0) && data.catalogPrice > 0) snap.purchasePrice = data.catalogPrice;
+          buildRateGrid(gridEl, snap, overKeys, mode, onRecompute, financingToggle, plate);
+          if (onRecompute) onRecompute();
+          rdwSetStatus(gridEl, "ok", t("rdwResult", { w: Math.round(data.weightKg), fuel: FUEL_LABELS[data.fuelType], tax: fmtEur(estTax, 0) }) +
+            (data.consumptionL100 > 0 ? t("rdwResultConsumption", { c: data.consumptionL100.toFixed(1) }) : "") +
+            (data.multiFuel ? t("rdwMultiFuel") : ""));
+        }, function () {
+          rdwBtn.disabled = false;
+          rdwSetStatus(gridEl, "error", t("rdwError"));
         });
       });
     }
@@ -2718,7 +2855,7 @@
     // (road tax / insurance / maintenance, or purchase & residual, or lease
     // amount). No energy/fuel-type section — this is the fast bulk-setup path,
     // the full grid (with energy) still lives in Breakdown.
-    function buildFinanceGrid(gridEl, src, overKeys) {
+    function buildFinanceGrid(gridEl, src, overKeys, plate) {
       overKeys = overKeys || [];
       var NL = LANG === "nl";
       var finOverride = src.financingMode || "";
@@ -2747,13 +2884,34 @@
         return fieldHtml(f, src[f.key], ov(f.key) || (f.unitKey && ov(f.unitKey)), f.unitKey ? src[f.unitKey] : null);
       }).join("");
       gridEl.innerHTML =
+        rdwRowHtml(plate) +
         '<div class="tco-rate-grid">' + finRow + '</div>' +
         '<div class="tco-rate-grid">' + ownGrid + '</div>';
       gridEl.querySelectorAll(".tco-fintoggle button").forEach(function (btn) {
         btn.addEventListener("click", function () {
           var snap = readGridRates(gridEl);
           snap.financingMode = btn.getAttribute("data-fin");
-          buildFinanceGrid(gridEl, snap, overKeys);
+          buildFinanceGrid(gridEl, snap, overKeys, plate);
+        });
+      });
+      var rdwBtn = gridEl.querySelector(".tco-rdw-btn");
+      if (rdwBtn) rdwBtn.addEventListener("click", function () {
+        rdwBtn.disabled = true;
+        rdwSetStatus(gridEl, "", t("rdwFetching"));
+        fetchRdwVehicle(plate).then(function (data) {
+          rdwBtn.disabled = false;
+          if (!data) { rdwSetStatus(gridEl, "error", t("rdwNotFound")); return; }
+          var snap = readGridRates(gridEl);
+          var opcenten = mergedDefaults().opcentenPct;
+          var estTax = estimateRoadTaxQuarterly(data.weightKg, data.fuelType, opcenten);
+          if ("roadTax" in snap) { snap.roadTax = estTax; snap.roadTaxUnit = "quarter"; }
+          if ("purchasePrice" in snap && (!num(snap.purchasePrice) || num(snap.purchasePrice) === 0) && data.catalogPrice > 0) snap.purchasePrice = data.catalogPrice;
+          buildFinanceGrid(gridEl, snap, overKeys, plate);
+          rdwSetStatus(gridEl, "ok", t("rdwResult", { w: Math.round(data.weightKg), fuel: FUEL_LABELS[data.fuelType], tax: fmtEur(estTax, 0) }) +
+            (data.multiFuel ? t("rdwMultiFuel") : ""));
+        }, function () {
+          rdwBtn.disabled = false;
+          rdwSetStatus(gridEl, "error", t("rdwError"));
         });
       });
     }
@@ -2788,7 +2946,7 @@
         }).join("");
       }
       var resolved = resolveRates(v.id);
-      if (el.tcoBulkGrid) buildFinanceGrid(el.tcoBulkGrid, resolved.rates, resolved.overriddenKeys);
+      if (el.tcoBulkGrid) buildFinanceGrid(el.tcoBulkGrid, resolved.rates, resolved.overriddenKeys, v.licensePlate);
       if (el.tcoBulkPrev) el.tcoBulkPrev.hidden = i === 0;
       if (el.tcoBulkNext) el.tcoBulkNext.textContent = (i === n - 1) ? t("bulkFinish") : t("bulkNext");
     }
