@@ -1,7 +1,7 @@
 {
   "name": "Total Cost of Ownership Dashboard",
   "supportEmail": "servicedesk@transscope.nl",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "items": [
     {
       "url": "index.html",

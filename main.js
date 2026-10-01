@@ -172,6 +172,7 @@
       rdwResult: "{w} kg · {fuel} · road tax estimated at {tax}/quarter — check and adjust.",
       rdwResultConsumption: ", {c} L/100km",
       rdwMultiFuel: " (hybrid — picked the primary fuel source; switch it above if needed)",
+      rdwHybridTaxNote: " — hybrid: RDW lists {fuel} as the registered fuel too, so road tax is charged on {fuel}, not the EV exemption.",
       opcentenLabel: "Provincial surcharge (opcenten)",
       opcentenHint: "Added on top of the national base rate — varies roughly 0–130% by province. Used only for the road-tax estimate from “Fetch from RDW”.",
       rdwDisclaimer: "Indicative only — not an official calculation. Always verify with the Belastingdienst MRB calculator."
@@ -289,6 +290,7 @@
       rdwResult: "{w} kg · {fuel} · wegenbelasting geschat op {tax}/kwartaal — controleer en pas aan.",
       rdwResultConsumption: ", {c} L/100km",
       rdwMultiFuel: " (hybride — primaire energiebron gebruikt; wissel hierboven indien gewenst)",
+      rdwHybridTaxNote: " — hybride: RDW registreert ook {fuel} als brandstof, dus de wegenbelasting wordt berekend op basis van {fuel}, niet de EV-vrijstelling.",
       opcentenLabel: "Provinciale opcenten",
       opcentenHint: "Komt bovenop het landelijke basistarief — varieert grofweg 0–130% per provincie. Alleen gebruikt voor de wegenbelasting-schatting bij “Ophalen via RDW”.",
       rdwDisclaimer: "Alleen indicatief — geen officiële berekening. Controleer altijd bij de MRB-rekenhulp van de Belastingdienst."
@@ -471,14 +473,29 @@
         return (parseInt(a.brandstof_volgnummer, 10) || 1) - (parseInt(b.brandstof_volgnummer, 10) || 1);
       });
       var primary = fuels[0] || {};
+      // A (plug-in) hybrid lists an "Elektriciteit" row alongside its petrol/
+      // diesel row — RDW's own volgnummer order does not reliably put the
+      // combustion row first. NL road tax (MRB) is charged on the combustion
+      // engine for a hybrid, NOT exempt like a pure EV, so the tax estimate
+      // must never silently fall back to the electric row when a fossil row
+      // also exists.
+      var fossilRow = null;
+      fuels.forEach(function (f) {
+        if (!fossilRow && mapRdwFuelType(f.brandstof_omschrijving) !== "electric") fossilRow = f;
+      });
+      var isPureEv = !fossilRow; // no combustion row at all -> genuine BEV
       return {
         weightKg: num(veh.massa_rijklaar) || num(veh.massa_ledig_voertuig) || 0,
         catalogPrice: num(veh.catalogusprijs) || 0,
         fuelType: mapRdwFuelType(primary.brandstof_omschrijving),
         fuelDesc: primary.brandstof_omschrijving || "",
-        consumptionL100: num(primary.brandstofverbruik_gecombineerd) || 0,
-        co2: num(primary.co2_uitstoot_gecombineerd) || 0,
-        multiFuel: fuels.length > 1
+        consumptionL100: num(primary.brandstofverbruik_gecombineerd) || (fossilRow ? num(fossilRow.brandstofverbruik_gecombineerd) : 0) || 0,
+        co2: num(primary.co2_uitstoot_gecombineerd) || (fossilRow ? num(fossilRow.co2_uitstoot_gecombineerd) : 0) || 0,
+        multiFuel: fuels.length > 1,
+        isHybrid: fuels.length > 1 && !isPureEv,
+        // the fuel type MRB is actually charged on - electric only when there
+        // truly is no combustion engine
+        taxFuelType: isPureEv ? "electric" : mapRdwFuelType(fossilRow.brandstof_omschrijving)
       };
     });
   }
@@ -2827,7 +2844,7 @@
           snap.fuelType = data.fuelType;
           if (data.fuelType !== "electric" && data.consumptionL100 > 0) snap.fuelConsumption = data.consumptionL100;
           var opcenten = mergedDefaults().opcentenPct;
-          var estTax = estimateRoadTaxQuarterly(data.weightKg, data.fuelType, opcenten);
+          var estTax = estimateRoadTaxQuarterly(data.weightKg, data.taxFuelType, opcenten);
           snap.roadTax = estTax;
           snap.roadTaxUnit = "quarter";
           if ((!num(snap.purchasePrice) || num(snap.purchasePrice) === 0) && data.catalogPrice > 0) snap.purchasePrice = data.catalogPrice;
@@ -2835,7 +2852,7 @@
           if (onRecompute) onRecompute();
           rdwSetStatus(gridEl, "ok", t("rdwResult", { w: Math.round(data.weightKg), fuel: FUEL_LABELS[data.fuelType], tax: fmtEur(estTax, 0) }) +
             (data.consumptionL100 > 0 ? t("rdwResultConsumption", { c: data.consumptionL100.toFixed(1) }) : "") +
-            (data.multiFuel ? t("rdwMultiFuel") : ""));
+            (data.isHybrid && data.taxFuelType !== data.fuelType ? t("rdwHybridTaxNote", { fuel: FUEL_LABELS[data.taxFuelType] }) : (data.multiFuel ? t("rdwMultiFuel") : "")));
         }, function () {
           rdwBtn.disabled = false;
           rdwSetStatus(gridEl, "error", t("rdwError"));
@@ -2903,12 +2920,12 @@
           if (!data) { rdwSetStatus(gridEl, "error", t("rdwNotFound")); return; }
           var snap = readGridRates(gridEl);
           var opcenten = mergedDefaults().opcentenPct;
-          var estTax = estimateRoadTaxQuarterly(data.weightKg, data.fuelType, opcenten);
+          var estTax = estimateRoadTaxQuarterly(data.weightKg, data.taxFuelType, opcenten);
           if ("roadTax" in snap) { snap.roadTax = estTax; snap.roadTaxUnit = "quarter"; }
           if ("purchasePrice" in snap && (!num(snap.purchasePrice) || num(snap.purchasePrice) === 0) && data.catalogPrice > 0) snap.purchasePrice = data.catalogPrice;
           buildFinanceGrid(gridEl, snap, overKeys, plate);
           rdwSetStatus(gridEl, "ok", t("rdwResult", { w: Math.round(data.weightKg), fuel: FUEL_LABELS[data.fuelType], tax: fmtEur(estTax, 0) }) +
-            (data.multiFuel ? t("rdwMultiFuel") : ""));
+            (data.isHybrid && data.taxFuelType !== data.fuelType ? t("rdwHybridTaxNote", { fuel: FUEL_LABELS[data.taxFuelType] }) : (data.multiFuel ? t("rdwMultiFuel") : "")));
         }, function () {
           rdwBtn.disabled = false;
           rdwSetStatus(gridEl, "error", t("rdwError"));
